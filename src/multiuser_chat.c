@@ -75,7 +75,7 @@ void addByte(int port, call_back callback){
 	bufferPos[port]++;
 	printf("Message so far: %s, need to hit %d chars\n",charBuffer[port],charBuffer[port][0]);
 	// check to see if message received
-	if(charBuffer[port][0]==bufferPos[port]){
+	if(charBuffer[port][0]+1==bufferPos[port]){
 		char message[bufferPos[port]+1];
 		for(int i=0;i<bufferPos[port];i++){
 			message[i]=charBuffer[port][i+1];
@@ -109,11 +109,11 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 		// account for rollover
 		dT = (4294967295-lastPulseTick[port]) + tick;
 	}
-	printf("DT: %d\n",dT);
+	//printf("DT: %d\n",dT);
 
 	if (dT>delay[port]-marginError[port] && dT < delay[port]+marginError[port]) {
 		//long pulse
-		printf("Long pulse\n");
+	//	printf("Long pulse\n");
 		if(!hsOccured[port]) {
 			if (level) { //if the level is 1, this is not the header
 				// this is the header; get the long pulse time
@@ -132,7 +132,7 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 	else if (dT>(delay[port]-marginError[port])/2 && dT < (delay[port]+marginError[port])/2) {
 		//short pulse
 		if(hsOccured[port]){ // ignore if haven't received header yet
-			printf("short pulse\n");
+		//	printf("short pulse\n");
 			if(!pulseOccured[port]) {
 				//discard this pulse
 				pulseOccured[port] = 1;
@@ -164,9 +164,9 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 	lastPulseTick[port] = tick;
 
 	if(bitNum[port] == 8) {
-		for (int i=0;i<bitNum[port];i++) {
-			printf("Bit %d: %d\n",i,output[port][i]);
-		}
+		//for (int i=0;i<bitNum[port];i++) {
+		//	printf("Bit %d: %d\n",i,output[port][i]);
+		//}
 		addByte(port,messageReceived);
 		//flush the byte to be able to accept the next byte
 		for (int i=0; i<8; i++) {
@@ -183,15 +183,14 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 void sendMessage(int pi, int port, char* str) {
 	// send size
 	char length = strlen(str);
-	printf("Sending %d\n",length);
+	printf("Sending %s\n",str);
 	sendChar(pi, (char)length, delay[port], out_array[port]);
 	usleep(delay[port]*11);
 	// send message
-	int i = 0;
-	while(str[i] != '\n') {
+	for(int i=0;i<length;i++){
 		sendChar(pi, str[i], delay[port], out_array[port]);
 		usleep(delay[port]*11);	
-		i++;
+		//i++;
 	}
 
 }
@@ -214,7 +213,7 @@ int main() {
 		}
 	}
 
-
+	printf("Username: %s\n", uname);
 	// start up gpio
 	int pi = pigpio_start(NULL,NULL);
 
@@ -232,20 +231,18 @@ int main() {
 		// make the message
 		char message[128];
 		// add the username
-		strlcat(message, uname, 128);
+		strcpy(message, uname);
 		// add the : 
-		strlcat(message, ": ", 128);
-		
+		strncat(message, ": ", 2);
 		// take out the newline character from holder
-		for(int i = 0; i<10;i++){
+		for(int i = 0; i<117;i++){
 			if(holder[i]=='\n'){
 				holder[i]='\0';
 				break;
 			}
 		}
 		// add the typed message
-		strlcat(message, holder, 128);
-
+		strncat(message, holder, 117);
 		for(int i =0;i<4;i++){
 			sendMessage(pi,i, message);
 		}

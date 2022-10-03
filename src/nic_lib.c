@@ -1,6 +1,6 @@
 #include <pigpiod_if2.h>
 #include <stdint.h>
-#include <stdio.h>
+#include <stdio.h> 
 #include <unistd.h>
 #include <string.h>
 #include "nic_lib.h"
@@ -37,6 +37,8 @@ int bufferPos[] = {0,0,0,0};
 char messageBuffer[4][32][128];
 // keep track of how many messages in each buffer
 int messageNum[] = {0,0,0,0};
+//latest message received
+char latestMessage[128];
 
 
 /*
@@ -112,7 +114,7 @@ int sendChar(int pi, char c, int dT, int pinOut) {
 	
 		i++;
 	}
-       	wave_clear(pi);	
+    wave_clear(pi);	
 	wave_add_generic(pi,i,pulses);
 	int wave = wave_create(pi);
 	
@@ -137,6 +139,14 @@ int gpio_to_port(unsigned user_gpio){
 	return 4;
 }
 
+/**
+ * Get the latest message received
+ * @return The last message to be fully transmitted over the network
+ */
+char* receive() {
+	return(&latestMessage[0]);
+}
+
 /*
 	add a byte to a port's byte buffer
 	@param port - which port to add a byte to
@@ -158,6 +168,7 @@ void addByte(int port){
 		// add null character
 		message[bufferPos[port]+1]='\0';
 		msgCallback(message);
+		strlcpy(lastMessage,message,128);
 		// clear char buffer
 		for (int c = 0; c < 128; c++) {
 			charBuffer[port][c] = '\0';
@@ -220,22 +231,6 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 			}
 		}
 	}
-	//if the delay doesn't look like half a delay OR a whole delay, start the message over
-	/*else if(dT > (delay[port] * 2)) {
-		printf("%s\n",charBuffer[port]);
-		//flush the byte to be able to accept the next byte
-		for (int i=0; i<8; i++) {
-			output[port][i] = 0;
-		}
-		printf("New message?\n");
-		bitNum[port] = 0;
-		hsOccured[port] = 0;
-		pulseOccured[port] = 0;
-		for (int c = 0; c < 128; c++) {
-			charBuffer[port][c] = '\0';
-		}
-		bufferPos[port] = 0;
-	}*/
 	lastPulseTick[port] = tick;
 
 	if(bitNum[port] == 8) {
@@ -255,10 +250,27 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 
 }
 
+/**
+ * Send a message to all ports.
+ * @param pi: the pi int object returned by pigpio
+ * @param str: the string to transmit
+ */
+void broadcast(int pi,char* str) {
+	for(int i =0;i<4;i++){
+		sendMessage(pi,i,str);
+	}
+}
+
+/**
+ * Send a message to a port.
+ * @param pi: the pi int object returned by pigpio
+ * @param port: the port number
+ * @param str: the string to transmit
+ */
 void sendMessage(int pi, int port, char* str) {
 	// send size
 	char length = strlen(str);
-	printf("Sending %d\n",length);
+	//printf("Sending %d\n",length);
 	sendChar(pi, (char)length, delay[port], out_array[port]);
 	usleep(delay[port]*11);
 	// send message
@@ -271,7 +283,11 @@ void sendMessage(int pi, int port, char* str) {
 
 }
 
-//Initialize the pigpio connection and the GPIO modes
+/**
+ * Initialize the pigpio connection and the GPIO modes
+ * @param userCallback: callback function that will be called once a message has been transmitted,
+ * with the message as a parameter
+ */
 void nic_lib_init(call_back userCallback) {
 	pi = pigpio_start(NULL,NULL);
 	msgCallback = userCallback;
