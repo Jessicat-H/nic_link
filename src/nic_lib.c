@@ -22,9 +22,9 @@ uint8_t hsOccured[] = {0,0,0,0};
 // last pulse time
 int lastPulseTick[] = {0,0,0,0};
 // the expected delay
-uint32_t expected_dt = 2000;
+const uint32_t expected_dt = 2000;
 // delay in us
-uint32_t delay[] = {dt,dt,dt,dt};
+uint32_t delay[] = {expected_dt,expected_dt,expected_dt,expected_dt};
 // margin in us
 uint32_t marginError[] = {500,500,500,500};
 // byte output buffer
