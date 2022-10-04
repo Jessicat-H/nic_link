@@ -33,10 +33,6 @@ int bitNum[] = {0,0,0,0};
 char charBuffer[4][128];
 //position within the above buffer
 int bufferPos[] = {0,0,0,0};
-// buffer for completed messages
-char messageBuffer[4][32][128];
-// keep track of how many messages in each buffer
-int messageNum[] = {0,0,0,0};
 //latest message received
 char latestMessage[128];
 
@@ -158,9 +154,8 @@ void addByte(int port){
 	}
 	charBuffer[port][bufferPos[port]] = byte;
 	bufferPos[port]++;
-	printf("Message so far: %s, need to hit %d chars\n",charBuffer[port],charBuffer[port][0]);
 	// check to see if message received
-	if(charBuffer[port][0]==bufferPos[port]){
+	if(charBuffer[port][0]+1==bufferPos[port]){
 		char message[bufferPos[port]+1];
 		for(int i=0;i<bufferPos[port];i++){
 			message[i]=charBuffer[port][i+1];
@@ -168,7 +163,7 @@ void addByte(int port){
 		// add null character
 		message[bufferPos[port]+1]='\0';
 		msgCallback(message);
-		strlcpy(lastMessage,message,128);
+		strcpy(latestMessage,message);
 		// clear char buffer
 		for (int c = 0; c < 128; c++) {
 			charBuffer[port][c] = '\0';
@@ -195,16 +190,13 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 		// account for rollover
 		dT = (4294967295-lastPulseTick[port]) + tick;
 	}
-	printf("DT: %d\n",dT);
 
 	if (dT>delay[port]-marginError[port] && dT < delay[port]+marginError[port]) {
 		//long pulse
-		printf("Long pulse\n");
 		if(!hsOccured[port]) {
 			if (level) { //if the level is 1, this is not the header
 				// this is the header; get the long pulse time
 				hsOccured[port]=1;
-				printf("Updating delay to: %d\n",dT);
 				delay[port] = dT;
 			}
 		}
@@ -218,7 +210,6 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 	else if (dT>(delay[port]-marginError[port])/2 && dT < (delay[port]+marginError[port])/2) {
 		//short pulse
 		if(hsOccured[port]){ // ignore if haven't received header yet
-			printf("short pulse\n");
 			if(!pulseOccured[port]) {
 				//discard this pulse
 				pulseOccured[port] = 1;
@@ -234,9 +225,6 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 	lastPulseTick[port] = tick;
 
 	if(bitNum[port] == 8) {
-		for (int i=0;i<bitNum[port];i++) {
-			printf("Bit %d: %d\n",i,output[port][i]);
-		}
 		addByte(port);
 		//flush the byte to be able to accept the next byte
 		for (int i=0; i<8; i++) {
@@ -255,9 +243,9 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
  * @param pi: the pi int object returned by pigpio
  * @param str: the string to transmit
  */
-void broadcast(int pi,char* str) {
+void broadcast(char* str) {
 	for(int i =0;i<4;i++){
-		sendMessage(pi,i,str);
+		sendMessage(i,str);
 	}
 }
 
@@ -267,18 +255,15 @@ void broadcast(int pi,char* str) {
  * @param port: the port number
  * @param str: the string to transmit
  */
-void sendMessage(int pi, int port, char* str) {
+void sendMessage(int port, char* str) {
 	// send size
 	char length = strlen(str);
-	//printf("Sending %d\n",length);
 	sendChar(pi, (char)length, delay[port], out_array[port]);
 	usleep(delay[port]*11);
 	// send message
-	int i = 0;
-	while(str[i] != '\n') {
+	for(int i=0;i<length;i++){
 		sendChar(pi, str[i], delay[port], out_array[port]);
 		usleep(delay[port]*11);	
-		i++;
 	}
 
 }
@@ -291,11 +276,13 @@ void sendMessage(int pi, int port, char* str) {
 void nic_lib_init(call_back userCallback) {
 	pi = pigpio_start(NULL,NULL);
 	msgCallback = userCallback;
-	//set modes using a loop
+	// set modes using a loop
 	for (int i = 0; i<4; i++) {
 		set_mode(pi, out_array[i], PI_OUTPUT);
 		set_mode(pi, in_array[i], PI_INPUT);
+		// blip a 1 to set up port
 		gpio_write(pi, out_array[i],1);
+		// add the receive callback to get a change
 		callback(pi, in_array[i], EITHER_EDGE, &changeDetected);
 	}
 }

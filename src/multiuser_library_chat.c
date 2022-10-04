@@ -19,7 +19,6 @@ void messageReceived(char* message){
 	Listen for and send messages
 */
 int main() {
-	int pi = pigpio_start(NULL,NULL);
 	nic_lib_init(messageReceived);
 
 	char uname[10];
@@ -41,7 +40,7 @@ int main() {
 	while(1){
 		// just keep waiting for messages and callbacks
         fgets(holder, 117, stdin);
-		//make the message
+		// make the message
 		char message[128];
 		// add the username
 		strcpy(message, uname);
@@ -57,7 +56,7 @@ int main() {
 		// add the typed message
 		strncat(message, holder, 117);
 
-		broadcast(pi, message);
+		broadcast(message);
 		
     }	
 
