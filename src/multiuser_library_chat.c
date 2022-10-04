@@ -12,8 +12,8 @@
 void messageReceived(char* message, int port){
 	// copy the string, just without the length
 	char stringMsg[message[0]];
-	for(int i=1; i<message[0];i++){
-		stringMsg[i-1]=message[i];
+	for(int i=0; i<message[0];i++){
+		stringMsg[i]=message[i+1];
 	}
 
 	// print things out
@@ -52,7 +52,7 @@ int main() {
 		// add the username
 		strcpy(message, uname);
 		// add the : 
-		strncat(message, ": ", 2);
+		strcat(message, ": ");
 		// take out the newline character from holder
 		for(int i = 0; i<117;i++){
 			if(holder[i]=='\n'){
@@ -62,8 +62,7 @@ int main() {
 		}
 		// add the typed message
 		strncat(message, holder, 117);
-
-		broadcast(message);
+		broadcast(message,strlen(message));
 		
     }	
 

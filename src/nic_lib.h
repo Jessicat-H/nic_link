@@ -1,6 +1,9 @@
 #ifndef NIC_LIB
 #define NIC_LIB
 
+// the standard message size
+#define MESSAGE_SIZE 128
+
 /**
  * message callback function
  * @param char* the message string
@@ -18,8 +21,9 @@ char* receive();
  * Send a message to a port.
  * @param port: the port number
  * @param str: the string to transmit
+ * @param length: the length of the message
  */
-void sendMessage(int port, char* str);
+void sendMessage(int port, char* str, char length);
 
 /**
  * Send a message to all ports.

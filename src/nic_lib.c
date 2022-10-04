@@ -12,8 +12,6 @@ static const int IN_ARRAY[] = {26, 24, 22, 20};
 static const int OUT_ARRAY[] = {27, 25, 23, 21};
 // the expected delay
 const uint32_t EXPECTED_DT = 2000;
-// the standard message size
-const MESSAGE_SIZE = 128;
 
 ///////// library vars
 
@@ -34,7 +32,7 @@ int lastPulseTick[] = {0,0,0,0};
 // delay in us
 uint32_t delay[] = {EXPECTED_DT,EXPECTED_DT,EXPECTED_DT,EXPECTED_DT};
 // margin in us
-uint32_t marginError[] = {500,500,500,500};
+uint32_t marginError[] = {EXPECTED_DT/4,EXPECTED_DT/4,EXPECTED_DT/4,EXPECTED_DT/4};
 // byte output buffer
 uint8_t output[4][8];
 // number of bits 
@@ -176,7 +174,7 @@ void addByte(int port){
 	if(charBuffer[port][0]+1==bufferPos[port]){
 		char message[bufferPos[port]];
 		// copy over the charBuffer to our message holder
-		strncpy(message, charBuffer,bufferPos[port]);
+		strncpy(message, charBuffer[port],bufferPos[port]);
 		// send the message to the callback
 		msgCallback(message,port);
 		// update latest message
@@ -258,17 +256,19 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 /**
  * Send a message to all ports.
  * @param str: the string to transmit
+ * @param length: the length of the message
  */
-void broadcast(char* str) {
-	sendMessage(4,str);
+void broadcast(char* str, char length) {
+	sendMessage(4,str, length);
 }
 
 /**
  * Send a message to a port.
  * @param port: the port number; 4 if to all
  * @param str: the string to transmit
+ * @param length: the length of the message
  */
-void sendMessage(int port, char* str) {
+void sendMessage(int port, char* str, char length) {
 	// the gpio pin to output to
 	// by default, sends to all
 	int32_t gpio=INT32_MAX;
@@ -276,8 +276,7 @@ void sendMessage(int port, char* str) {
 		gpio=OUT_ARRAY[port];
 	}
 	// send size
-	char length = strlen(str);
-	sendChar(pi, (char)length, EXPECTED_DT, gpio);
+	sendChar(pi, length, EXPECTED_DT, gpio);
 	usleep(EXPECTED_DT*11);
 	// send message
 	for(int i=0;i<length;i++){
