@@ -28,8 +28,9 @@ void sendMessage(int port, char* str, char length);
 /**
  * Send a message to all ports.
  * @param str: the string to transmit
+ * @param length: the length of the message
  */
-void broadcast(char* str);
+void broadcast(char* str, char length);
 
 /**
  * Initialize the pigpio connection and the GPIO modes
