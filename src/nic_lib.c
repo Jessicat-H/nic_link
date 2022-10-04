@@ -21,10 +21,12 @@ uint8_t pulseOccured[] = {0,0,0,0};
 uint8_t hsOccured[] = {0,0,0,0};
 // last pulse time
 int lastPulseTick[] = {0,0,0,0};
+// the expected delay
+uint32_t expected_dt = 2000;
 // delay in us
-uint32_t delay[] = {50000,50000,50000,50000};
+uint32_t delay[] = {dt,dt,dt,dt};
 // margin in us
-uint32_t marginError[] = {5000,5000,5000,5000};
+uint32_t marginError[] = {500,500,500,500};
 // byte output buffer
 uint8_t output[4][8];
 // number of bits 
@@ -43,9 +45,9 @@ char latestMessage[128];
  * pi - result returned from pigpio_start(NULL, NULL)
  * c - character to transmit
  * dT - Interval that corresponds to a long pulse. Must match between sender and reciever
- * pinOut - GPIO pin to send the message on (Broadcom numbers)
+ * pinOut - GPIO pin to send the message on (Broadcom numbers); if INT32_MAX send to all
  */
-int sendChar(int pi, char c, int dT, int pinOut) {
+int sendChar(int pi, char c, int dT, int32_t pinOut) {
 	char data = c;
 	//100000
 	//010000
@@ -53,6 +55,14 @@ int sendChar(int pi, char c, int dT, int pinOut) {
 	char first = !(0x80&data);
 	int i=0;
 	gpioPulse_t pulses[8*2+3];	
+
+	// by default blast to all
+	int32_t pins=INT32_MAX;	
+	// otherwise, send to individual port
+	if(pinOut!=INT32_MAX){
+		1<<pinOut;
+	}
+
 	//add handshake
 	/* If signal starts high:
 	 * ----.    .--data starts
@@ -65,15 +75,15 @@ int sendChar(int pi, char c, int dT, int pinOut) {
 	 *     |  |    |
 	 * ----.  .----.
 	 */
-	pulses[i].gpioOn=1<<pinOut;
+	pulses[i].gpioOn=pins;
 	pulses[i].gpioOff=0;
 	pulses[i].usDelay=dT/2;
 	i++;
 	pulses[i].gpioOn=0;
-	pulses[i].gpioOff=1<<pinOut;
+	pulses[i].gpioOff=pins;
 	pulses[i].usDelay=dT;
 	i++;
-	pulses[i].gpioOn=1<<pinOut;
+	pulses[i].gpioOn=pins;
 	pulses[i].gpioOff=0;
 	pulses[i].usDelay=dT/2;
 	i++;
@@ -85,10 +95,10 @@ int sendChar(int pi, char c, int dT, int pinOut) {
 		 */
 		if (data&m) {
 				pulses[i].gpioOn =0;
-				pulses[i].gpioOff=1<<pinOut;
+				pulses[i].gpioOff=pins;
 				pulses[i].usDelay=dT/2;
 				i++;
-				pulses[i].gpioOn =1<<pinOut;
+				pulses[i].gpioOn =pins;
                                 pulses[i].gpioOff=0;
                                 pulses[i].usDelay=dT/2;
 		}
@@ -98,13 +108,13 @@ int sendChar(int pi, char c, int dT, int pinOut) {
                  *   .--
                  */
 		else {
-				pulses[i].gpioOn =1<<pinOut;
-                                pulses[i].gpioOff=0;
-                                pulses[i].usDelay=dT/2;
+				pulses[i].gpioOn =pins;
+				pulses[i].gpioOff=0;
+				pulses[i].usDelay=dT/2;
 				i++;
 				pulses[i].gpioOn =0;
-                                pulses[i].gpioOff=1<<pinOut;
-                                pulses[i].usDelay=dT/2;
+				pulses[i].gpioOff=pins;
+				pulses[i].usDelay=dT/2;
 
 		}
 	
@@ -162,7 +172,7 @@ void addByte(int port){
 		}
 		// add null character
 		message[bufferPos[port]+1]='\0';
-		msgCallback(message);
+		msgCallback(message,port);
 		strcpy(latestMessage,message);
 		// clear char buffer
 		for (int c = 0; c < 128; c++) {
@@ -240,30 +250,32 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 
 /**
  * Send a message to all ports.
- * @param pi: the pi int object returned by pigpio
  * @param str: the string to transmit
  */
 void broadcast(char* str) {
-	for(int i =0;i<4;i++){
-		sendMessage(i,str);
-	}
+	sendMessage(4,str);
 }
 
 /**
  * Send a message to a port.
- * @param pi: the pi int object returned by pigpio
- * @param port: the port number
+ * @param port: the port number; 4 if to all
  * @param str: the string to transmit
  */
 void sendMessage(int port, char* str) {
+	// the gpio pin to output to
+	// by default, sends to all
+	int32_t gpio=INT32_MAX;
+	if(port<4){
+		gpio=out_array[port];
+	}
 	// send size
 	char length = strlen(str);
-	sendChar(pi, (char)length, delay[port], out_array[port]);
-	usleep(delay[port]*11);
+	sendChar(pi, (char)length, expected_dt, gpio);
+	usleep(expected_dt*11);
 	// send message
 	for(int i=0;i<length;i++){
-		sendChar(pi, str[i], delay[port], out_array[port]);
-		usleep(delay[port]*11);	
+		sendChar(pi, str[i], expected_dt, gpio);
+		usleep(expected_dt*11);	
 	}
 
 }

@@ -4,8 +4,9 @@
 /**
  * message callback function
  * @param char* the message string
+ * @param int the port number
  */ 
-typedef void (*call_back) (char*);
+typedef void (*call_back) (char*, int);
 
 /**
  * Get the latest message received
@@ -15,7 +16,6 @@ char* receive();
 
 /**
  * Send a message to a port.
- * @param pi: the pi int object returned by pigpio
  * @param port: the port number
  * @param str: the string to transmit
  */
@@ -23,7 +23,6 @@ void sendMessage(int port, char* str);
 
 /**
  * Send a message to all ports.
- * @param pi: the pi int object returned by pigpio
  * @param str: the string to transmit
  */
 void broadcast(char* str);

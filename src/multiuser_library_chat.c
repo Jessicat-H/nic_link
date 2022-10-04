@@ -9,9 +9,9 @@
 	call back for receiving a message
 	@param message - the message received
 */
-void messageReceived(char* message){
+void messageReceived(char* message, int port){
 	printf("\n");
-	printf("%s\n",  message);
+	printf("Port %d: %s\n",  port, message);
 	printf("\n");
 }
 
