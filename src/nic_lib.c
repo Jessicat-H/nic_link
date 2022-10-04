@@ -5,13 +5,23 @@
 #include <string.h>
 #include "nic_lib.h"
 
+///////// consts
+
 //define ports. broadcom nums. port 1 is idx 0.
-static int in_array[] = {26, 24, 22, 20};
-static int out_array[] = {27, 25, 23, 21};
+static const int IN_ARRAY[] = {26, 24, 22, 20};
+static const int OUT_ARRAY[] = {27, 25, 23, 21};
+// the expected delay
+const uint32_t EXPECTED_DT = 2000;
+// the standard message size
+const MESSAGE_SIZE = 128;
+
+///////// library vars
+
 // pigpio pi reference
 static int pi;
 //function to call after msg recieved
 call_back msgCallback;
+
 
 ////////tracking variables
 
@@ -21,10 +31,8 @@ uint8_t pulseOccured[] = {0,0,0,0};
 uint8_t hsOccured[] = {0,0,0,0};
 // last pulse time
 int lastPulseTick[] = {0,0,0,0};
-// the expected delay
-const uint32_t expected_dt = 2000;
 // delay in us
-uint32_t delay[] = {expected_dt,expected_dt,expected_dt,expected_dt};
+uint32_t delay[] = {EXPECTED_DT,EXPECTED_DT,EXPECTED_DT,EXPECTED_DT};
 // margin in us
 uint32_t marginError[] = {500,500,500,500};
 // byte output buffer
@@ -32,11 +40,11 @@ uint8_t output[4][8];
 // number of bits 
 int bitNum[] = {0,0,0,0};
 //character buffers for message
-char charBuffer[4][128];
+char charBuffer[4][MESSAGE_SIZE];
 //position within the above buffer
 int bufferPos[] = {0,0,0,0};
 //latest message received
-char latestMessage[128];
+char latestMessage[MESSAGE_SIZE];
 
 
 /*
@@ -166,18 +174,17 @@ void addByte(int port){
 	bufferPos[port]++;
 	// check to see if message received
 	if(charBuffer[port][0]+1==bufferPos[port]){
-		char message[bufferPos[port]+1];
-		for(int i=0;i<bufferPos[port];i++){
-			message[i]=charBuffer[port][i+1];
-		}
-		// add null character
-		message[bufferPos[port]+1]='\0';
+		char message[bufferPos[port]];
+		// copy over the charBuffer to our message holder
+		strncpy(message, charBuffer,bufferPos[port]);
+		// send the message to the callback
 		msgCallback(message,port);
+		// update latest message
 		strcpy(latestMessage,message);
-		// clear char buffer
-		for (int c = 0; c < 128; c++) {
-			charBuffer[port][c] = '\0';
-		}
+		// clear char buffer - theoretically don't need this; uncomment if things break
+		// for (int c = 0; c < MESSAGE_SIZE; c++) {
+		// 	charBuffer[port][c] = '\0';
+		// } 
 		bufferPos[port] = 0;
 	}
 }
@@ -266,16 +273,16 @@ void sendMessage(int port, char* str) {
 	// by default, sends to all
 	int32_t gpio=INT32_MAX;
 	if(port<4){
-		gpio=out_array[port];
+		gpio=OUT_ARRAY[port];
 	}
 	// send size
 	char length = strlen(str);
-	sendChar(pi, (char)length, expected_dt, gpio);
-	usleep(expected_dt*11);
+	sendChar(pi, (char)length, EXPECTED_DT, gpio);
+	usleep(EXPECTED_DT*11);
 	// send message
 	for(int i=0;i<length;i++){
-		sendChar(pi, str[i], expected_dt, gpio);
-		usleep(expected_dt*11);	
+		sendChar(pi, str[i], EXPECTED_DT, gpio);
+		usleep(EXPECTED_DT*11);	
 	}
 
 }
@@ -290,12 +297,12 @@ void nic_lib_init(call_back userCallback) {
 	msgCallback = userCallback;
 	// set modes using a loop
 	for (int i = 0; i<4; i++) {
-		set_mode(pi, out_array[i], PI_OUTPUT);
-		set_mode(pi, in_array[i], PI_INPUT);
+		set_mode(pi, OUT_ARRAY[i], PI_OUTPUT);
+		set_mode(pi, IN_ARRAY[i], PI_INPUT);
 		// blip a 1 to set up port
-		gpio_write(pi, out_array[i],1);
+		gpio_write(pi, OUT_ARRAY[i],1);
 		// add the receive callback to get a change
-		callback(pi, in_array[i], EITHER_EDGE, &changeDetected);
+		callback(pi, IN_ARRAY[i], EITHER_EDGE, &changeDetected);
 	}
 }
 

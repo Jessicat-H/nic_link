@@ -6,12 +6,19 @@
 #include "nic_lib.h"
 
 /*
-	call back for receiving a message
+	Callback for receiving a message
 	@param message - the message received
 */
 void messageReceived(char* message, int port){
+	// copy the string, just without the length
+	char stringMsg[message[0]];
+	for(int i=1; i<message[0];i++){
+		stringMsg[i-1]=message[i];
+	}
+
+	// print things out
 	printf("\n");
-	printf("Port %d: %s\n",  port, message);
+	printf("Port %d, size %d: %s\n",  port, message[0], stringMsg);
 	printf("\n");
 }
 
