@@ -218,7 +218,7 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 		}
 	}
 	// check margins
-	else if ((dT>(delay[port]/2)-marginError[port]) && (dT <= delay[port]-marginError[port]) {
+	else if ((dT>(delay[port]/2)-marginError[port]) && (dT <= delay[port]-marginError[port])) {
 		//short pulse
 		if(hsOccured[port]){ // ignore if haven't received header yet
 			if(!pulseOccured[port]) {
