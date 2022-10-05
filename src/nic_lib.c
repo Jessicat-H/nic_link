@@ -201,13 +201,14 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 		dT = (4294967295-lastPulseTick[port]) + tick;
 	}
 
-	if (dT>delay[port]-marginError[port] && dT < delay[port]+marginError[port]) {
+	if ((dT>delay[port]-marginError[port]) && (dT <= delay[port]+marginError[port])) {
 		//long pulse
 		if(!hsOccured[port]) {
 			if (level) { //if the level is 1, this is not the header
 				// this is the header; get the long pulse time
 				hsOccured[port]=1;
 				delay[port] = dT;
+				marginError[port] = dT/4;
 			}
 		}
 		else {
@@ -217,7 +218,7 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 		}
 	}
 	// check margins
-	else if (dT>(delay[port]-marginError[port])/2 && dT < (delay[port]+marginError[port])/2) {
+	else if ((dT>(delay[port]/2)-marginError[port]) && (dT <= delay[port]-marginError[port]) {
 		//short pulse
 		if(hsOccured[port]){ // ignore if haven't received header yet
 			if(!pulseOccured[port]) {
