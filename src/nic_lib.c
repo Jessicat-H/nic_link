@@ -32,11 +32,11 @@ uint8_t output[4][8];
 // number of bits 
 int bitNum[] = {0,0,0,0};
 //character buffers for message
-char charBuffer[4][128];
+uint8_t charBuffer[4][128];
 //position within the above buffer
 int bufferPos[] = {0,0,0,0};
 //latest message received
-char latestMessage[128];
+uint8_t latestMessage[128];
 
 
 /*
@@ -47,12 +47,12 @@ char latestMessage[128];
  * dT - Interval that corresponds to a long pulse. Must match between sender and reciever
  * pinOut - GPIO pin to send the message on (Broadcom numbers); if INT32_MAX send to all
  */
-int sendChar(int pi, char c, int dT, int32_t pinOut) {
-	char data = c;
+int sendChar(int pi, uint8_t c, int dT, int32_t pinOut) {
+	uint8_t data = c;
 	//100000
 	//010000
 	//00100
-	char first = !(0x80&data);
+	uint8_t first = !(0x80&data);
 	int i=0;
 	gpioPulse_t pulses[8*2+3];	
 
@@ -87,7 +87,7 @@ int sendChar(int pi, char c, int dT, int32_t pinOut) {
 	pulses[i].gpioOff=0;
 	pulses[i].usDelay=dT/2;
 	i++;
-	for (char m=0x80;m>0;m>>=1) {
+	for (uint8_t m=0x80;m>0;m>>=1) {
 		/*Always encodes:
 		 *   .--
 		 *   |
@@ -149,7 +149,7 @@ int gpio_to_port(unsigned user_gpio){
  * Get the latest message received
  * @return The last message to be fully transmitted over the network
  */
-char* receive() {
+uint8_t* receive() {
 	return(&latestMessage[0]);
 }
 
@@ -158,7 +158,7 @@ char* receive() {
 	@param port - which port to add a byte to
 */
 void addByte(int port){
-	unsigned char byte = 0b00000000;
+	unsigned uint8_t byte = 0b00000000;
 	for(int i = 0; i < 8; i++) {
 		byte += output[port][i] << (7-i);
 	}
@@ -166,7 +166,7 @@ void addByte(int port){
 	bufferPos[port]++;
 	// check to see if message received
 	if(charBuffer[port][0]+1==bufferPos[port]){
-		char message[bufferPos[port]+1];
+		uint8_t message[bufferPos[port]+1];
 		for(int i=0;i<bufferPos[port];i++){
 			message[i]=charBuffer[port][i+1];
 		}
@@ -254,7 +254,7 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
  * @param str: the string to transmit
  * @param length: the length of the message
  */
-void broadcast(char* str, uint8_t length) {
+void broadcast(uint8_t* str, uint8_t length) {
 	sendMessage(4,str, length);
 }
 
@@ -264,7 +264,7 @@ void broadcast(char* str, uint8_t length) {
  * @param str: the string to transmit
  * @param length: the length of the message
  */
-void sendMessage(int port, char* str, uint8_t length) {
+void sendMessage(int port, uint8_t* str, uint8_t length) {
 	// the gpio pin to output to
 	// by default, sends to all
 	int32_t gpio=INT32_MAX;
