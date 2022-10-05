@@ -9,7 +9,7 @@
  * @param char* the message string
  * @param int the port number
  */ 
-typedef void (*call_back) (char*, int);
+typedef void (*call_back) (uint8_t*, int);
 
 /**
  * Get the latest message received
