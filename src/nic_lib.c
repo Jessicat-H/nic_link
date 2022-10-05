@@ -252,17 +252,19 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 /**
  * Send a message to all ports.
  * @param str: the string to transmit
+ * @param length: the length of the message
  */
-void broadcast(char* str) {
-	sendMessage(4,str);
+void broadcast(char* str, uint8_t length) {
+	sendMessage(4,str, length);
 }
 
 /**
  * Send a message to a port.
  * @param port: the port number; 4 if to all
  * @param str: the string to transmit
+ * @param length: the length of the message
  */
-void sendMessage(int port, char* str) {
+void sendMessage(int port, char* str, uint8_t length) {
 	// the gpio pin to output to
 	// by default, sends to all
 	int32_t gpio=INT32_MAX;
@@ -270,8 +272,7 @@ void sendMessage(int port, char* str) {
 		gpio=out_array[port];
 	}
 	// send size
-	char length = strlen(str);
-	sendChar(pi, (char)length, expected_dt, gpio);
+	sendChar(pi, length, expected_dt, gpio);
 	usleep(expected_dt*11);
 	// send message
 	for(int i=0;i<length;i++){

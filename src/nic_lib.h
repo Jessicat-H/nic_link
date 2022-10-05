@@ -18,14 +18,16 @@ char* receive();
  * Send a message to a port.
  * @param port: the port number
  * @param str: the string to transmit
+ * @param length: the length of the message
  */
-void sendMessage(int port, char* str);
+void sendMessage(int port, char* str, uint8_t length);
 
 /**
  * Send a message to all ports.
  * @param str: the string to transmit
+ * @param length: the length of the message
  */
-void broadcast(char* str);
+void broadcast(char* str, uint8_t length);
 
 /**
  * Initialize the pigpio connection and the GPIO modes

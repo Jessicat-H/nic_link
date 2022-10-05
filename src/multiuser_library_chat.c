@@ -55,8 +55,8 @@ int main() {
 		}
 		// add the typed message
 		strncat(message, holder, 117);
-
-		broadcast(message);
+		uint8_t length = strlen(holder)+strlen(uname)+2;
+		broadcast(message, length);
 		
     }	
 
