@@ -61,7 +61,7 @@ int sendChar(int pi, uint8_t c, int dT, int32_t pinOut) {
 	int32_t pins=INT32_MAX;	
 	// otherwise, send to individual port
 	if(pinOut!=INT32_MAX){
-		1<<pinOut;
+		pins = 1<<pinOut;
 	}
 
 	//add handshake
@@ -159,7 +159,7 @@ uint8_t* receive() {
 	@param port - which port to add a byte to
 */
 void addByte(int port){
-	unsigned uint8_t byte = 0b00000000;
+	uint8_t byte = 0b00000000;
 	for(int i = 0; i < 8; i++) {
 		byte += output[port][i] << (7-i);
 	}
@@ -171,12 +171,12 @@ void addByte(int port){
 		// copy over the charBuffer to our message holder
 		for (int i = 0; i < bufferPos[port]; i++) {
 			message[i] = charBuffer[port][i];
+			latestMessage[i] = message[i];
 		}
 		//strncpy(message, charBuffer[port],bufferPos[port]);
 		// send the message to the callback
 		msgCallback(message,port);
 		// update latest message
-		latestMessage = message;
 		//strcpy(latestMessage,message);
 		// clear char buffer - theoretically don't need this; uncomment if things break
 		// for (int c = 0; c < MESSAGE_SIZE; c++) {
