@@ -6,19 +6,12 @@
 #include "nic_lib.h"
 
 /*
-	Callback for receiving a message
+	call back for receiving a message
 	@param message - the message received
 */
-void messageReceived(char* message, int port){
-	// copy the string, just without the length
-	char stringMsg[message[0]];
-	for(int i=0; i<message[0];i++){
-		stringMsg[i]=message[i+1];
-	}
-
-	// print things out
+void messageReceived(uint8_t* message, int port){
 	printf("\n");
-	printf("Port %d, size %d: %s\n",  port, message[0], stringMsg);
+	printf("Port %d: %.*s\n",  port,(int)message[0], &message[1]);
 	printf("\n");
 }
 
@@ -28,7 +21,7 @@ void messageReceived(char* message, int port){
 int main() {
 	nic_lib_init(messageReceived);
 
-	char uname[10];
+	uint8_t uname[10];
 	printf("Enter your username (max 8 chars): ");
 	fgets(uname, 10, stdin);
 	printf("\n");
@@ -42,17 +35,17 @@ int main() {
 	}
 
 	printf("Enter a message and hit enter to send it. Messages must be under 117 characters; additional characters will be truncated.\n");
-	char holder[117];
+	uint8_t holder[117];
 
 	while(1){
 		// just keep waiting for messages and callbacks
         fgets(holder, 117, stdin);
 		// make the message
-		char message[128];
+		uint8_t message[128];
 		// add the username
 		strcpy(message, uname);
 		// add the : 
-		strcat(message, ": ");
+		strncat(message, ": ", 2);
 		// take out the newline character from holder
 		for(int i = 0; i<117;i++){
 			if(holder[i]=='\n'){
@@ -62,7 +55,8 @@ int main() {
 		}
 		// add the typed message
 		strncat(message, holder, 117);
-		broadcast(message,strlen(message));
+		uint8_t length = strlen(holder)+strlen(uname)+2;
+		broadcast(message, length);
 		
     }	
 

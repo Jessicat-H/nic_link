@@ -5,21 +5,13 @@
 #include <string.h>
 #include "nic_lib.h"
 
-///////// consts
-
 //define ports. broadcom nums. port 1 is idx 0.
-static const int IN_ARRAY[] = {26, 24, 22, 20};
-static const int OUT_ARRAY[] = {27, 25, 23, 21};
-// the expected delay
-const uint32_t EXPECTED_DT = 2000;
-
-///////// library vars
-
+static int in_array[] = {26, 24, 22, 20};
+static int out_array[] = {27, 25, 23, 21};
 // pigpio pi reference
 static int pi;
 //function to call after msg recieved
 call_back msgCallback;
-
 
 ////////tracking variables
 
@@ -29,20 +21,22 @@ uint8_t pulseOccured[] = {0,0,0,0};
 uint8_t hsOccured[] = {0,0,0,0};
 // last pulse time
 int lastPulseTick[] = {0,0,0,0};
+// the expected delay
+const uint32_t expected_dt = 2000;
 // delay in us
-uint32_t delay[] = {EXPECTED_DT,EXPECTED_DT,EXPECTED_DT,EXPECTED_DT};
+uint32_t delay[] = {expected_dt,expected_dt,expected_dt,expected_dt};
 // margin in us
-uint32_t marginError[] = {EXPECTED_DT/4,EXPECTED_DT/4,EXPECTED_DT/4,EXPECTED_DT/4};
+uint32_t marginError[] = {500,500,500,500};
 // byte output buffer
 uint8_t output[4][8];
 // number of bits 
 int bitNum[] = {0,0,0,0};
 //character buffers for message
-char charBuffer[4][MESSAGE_SIZE];
+uint8_t charBuffer[4][128];
 //position within the above buffer
 int bufferPos[] = {0,0,0,0};
 //latest message received
-char latestMessage[MESSAGE_SIZE];
+uint8_t latestMessage[128];
 
 
 /*
@@ -53,12 +47,12 @@ char latestMessage[MESSAGE_SIZE];
  * dT - Interval that corresponds to a long pulse. Must match between sender and reciever
  * pinOut - GPIO pin to send the message on (Broadcom numbers); if INT32_MAX send to all
  */
-int sendChar(int pi, char c, int dT, int32_t pinOut) {
-	char data = c;
+int sendChar(int pi, uint8_t c, int dT, int32_t pinOut) {
+	uint8_t data = c;
 	//100000
 	//010000
 	//00100
-	char first = !(0x80&data);
+	uint8_t first = !(0x80&data);
 	int i=0;
 	gpioPulse_t pulses[8*2+3];	
 
@@ -93,7 +87,7 @@ int sendChar(int pi, char c, int dT, int32_t pinOut) {
 	pulses[i].gpioOff=0;
 	pulses[i].usDelay=dT/2;
 	i++;
-	for (char m=0x80;m>0;m>>=1) {
+	for (uint8_t m=0x80;m>0;m>>=1) {
 		/*Always encodes:
 		 *   .--
 		 *   |
@@ -155,7 +149,7 @@ int gpio_to_port(unsigned user_gpio){
  * Get the latest message received
  * @return The last message to be fully transmitted over the network
  */
-char* receive() {
+uint8_t* receive() {
 	return(&latestMessage[0]);
 }
 
@@ -164,7 +158,7 @@ char* receive() {
 	@param port - which port to add a byte to
 */
 void addByte(int port){
-	unsigned char byte = 0b00000000;
+	uint8_t byte = 0b00000000;
 	for(int i = 0; i < 8; i++) {
 		byte += output[port][i] << (7-i);
 	}
@@ -172,17 +166,19 @@ void addByte(int port){
 	bufferPos[port]++;
 	// check to see if message received
 	if(charBuffer[port][0]+1==bufferPos[port]){
-		char message[bufferPos[port]];
-		// copy over the charBuffer to our message holder
-		strncpy(message, charBuffer[port],bufferPos[port]);
-		// send the message to the callback
+		uint8_t message[bufferPos[port]+1];
+
+		// copy buffer
+		for(int i=0;i<bufferPos[port]+1;i++){
+			message[i]=charBuffer[port][i];
+			latestMessage[i]=message[i];
+		}
 		msgCallback(message,port);
-		// update latest message
-		strcpy(latestMessage,message);
-		// clear char buffer - theoretically don't need this; uncomment if things break
-		// for (int c = 0; c < MESSAGE_SIZE; c++) {
-		// 	charBuffer[port][c] = '\0';
-		// } 
+		// strcpy(latestMessage,message);
+		// clear char buffer
+		for (int c = 0; c < 128; c++) {
+			charBuffer[port][c] = '\0';
+		}
 		bufferPos[port] = 0;
 	}
 }
@@ -206,13 +202,14 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 		dT = (4294967295-lastPulseTick[port]) + tick;
 	}
 
-	if (dT>delay[port]-marginError[port] && dT < delay[port]+marginError[port]) {
+	if ((dT>delay[port]-marginError[port]) && (dT <= delay[port]+marginError[port])) {
 		//long pulse
 		if(!hsOccured[port]) {
 			if (level) { //if the level is 1, this is not the header
 				// this is the header; get the long pulse time
 				hsOccured[port]=1;
 				delay[port] = dT;
+				marginError[port] = dT/4;
 			}
 		}
 		else {
@@ -222,7 +219,7 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 		}
 	}
 	// check margins
-	else if (dT>(delay[port]-marginError[port])/2 && dT < (delay[port]+marginError[port])/2) {
+	else if ((dT>(delay[port]/2)-marginError[port]) && (dT <= delay[port]-marginError[port])) {
 		//short pulse
 		if(hsOccured[port]){ // ignore if haven't received header yet
 			if(!pulseOccured[port]) {
@@ -258,7 +255,7 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
  * @param str: the string to transmit
  * @param length: the length of the message
  */
-void broadcast(char* str, char length) {
+void broadcast(uint8_t* str, uint8_t length) {
 	sendMessage(4,str, length);
 }
 
@@ -268,20 +265,20 @@ void broadcast(char* str, char length) {
  * @param str: the string to transmit
  * @param length: the length of the message
  */
-void sendMessage(int port, char* str, char length) {
+void sendMessage(int port, uint8_t* str, uint8_t length) {
 	// the gpio pin to output to
 	// by default, sends to all
 	int32_t gpio=INT32_MAX;
 	if(port<4){
-		gpio=OUT_ARRAY[port];
+		gpio=out_array[port];
 	}
 	// send size
-	sendChar(pi, length, EXPECTED_DT, gpio);
-	usleep(EXPECTED_DT*11);
+	sendChar(pi, length, expected_dt, gpio);
+	usleep(expected_dt*11);
 	// send message
 	for(int i=0;i<length;i++){
-		sendChar(pi, str[i], EXPECTED_DT, gpio);
-		usleep(EXPECTED_DT*11);	
+		sendChar(pi, str[i], expected_dt, gpio);
+		usleep(expected_dt*11);	
 	}
 
 }
@@ -296,12 +293,12 @@ void nic_lib_init(call_back userCallback) {
 	msgCallback = userCallback;
 	// set modes using a loop
 	for (int i = 0; i<4; i++) {
-		set_mode(pi, OUT_ARRAY[i], PI_OUTPUT);
-		set_mode(pi, IN_ARRAY[i], PI_INPUT);
+		set_mode(pi, out_array[i], PI_OUTPUT);
+		set_mode(pi, in_array[i], PI_INPUT);
 		// blip a 1 to set up port
-		gpio_write(pi, OUT_ARRAY[i],1);
+		gpio_write(pi, out_array[i],1);
 		// add the receive callback to get a change
-		callback(pi, IN_ARRAY[i], EITHER_EDGE, &changeDetected);
+		callback(pi, in_array[i], EITHER_EDGE, &changeDetected);
 	}
 }
 

@@ -1,21 +1,18 @@
 #ifndef NIC_LIB
 #define NIC_LIB
 
-// the standard message size
-#define MESSAGE_SIZE 128
-
 /**
  * message callback function
- * @param char* the message string
+ * @param uint8_t* the message string
  * @param int the port number
  */ 
-typedef void (*call_back) (char*, int);
+typedef void (*call_back) (uint8_t*, int);
 
 /**
  * Get the latest message received
  * @return The last message to be fully transmitted over the network
  */
-char* receive();
+uint8_t* receive();
 
 /**
  * Send a message to a port.
@@ -23,14 +20,14 @@ char* receive();
  * @param str: the string to transmit
  * @param length: the length of the message
  */
-void sendMessage(int port, char* str, char length);
+void sendMessage(int port, uint8_t* str, uint8_t length);
 
 /**
  * Send a message to all ports.
  * @param str: the string to transmit
  * @param length: the length of the message
  */
-void broadcast(char* str, char length);
+void broadcast(uint8_t* str, uint8_t length);
 
 /**
  * Initialize the pigpio connection and the GPIO modes
