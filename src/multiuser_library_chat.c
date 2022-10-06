@@ -11,7 +11,7 @@
 */
 void messageReceived(uint8_t* message, int port){
 	printf("\n");
-	printf("Port %d: %s\n",  port, message);
+	printf("Port %d: %.*s\n",  port,(int)message[0], &message[1]);
 	printf("\n");
 }
 

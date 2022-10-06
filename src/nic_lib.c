@@ -158,7 +158,7 @@ uint8_t* receive() {
 	@param port - which port to add a byte to
 */
 void addByte(int port){
-	unsigned uint8_t byte = 0b00000000;
+	uint8_t byte = 0b00000000;
 	for(int i = 0; i < 8; i++) {
 		byte += output[port][i] << (7-i);
 	}
@@ -167,13 +167,19 @@ void addByte(int port){
 	// check to see if message received
 	if(charBuffer[port][0]+1==bufferPos[port]){
 		uint8_t message[bufferPos[port]+1];
-		for(int i=0;i<bufferPos[port];i++){
-			message[i]=charBuffer[port][i+1];
+		// for(int i=0;i<bufferPos[port];i++){
+		// 	message[i]=charBuffer[port][i+1];
+		// }
+		// // add null character
+		// message[bufferPos[port]+1]='\0';
+
+		// copy buffer
+		for(int i=0;i<bufferPos[port]+1;i++){
+			message[i]=charBuffer[port][i];
+			latestMessage[i]=message[i];
 		}
-		// add null character
-		message[bufferPos[port]+1]='\0';
 		msgCallback(message,port);
-		strcpy(latestMessage,message);
+		// strcpy(latestMessage,message);
 		// clear char buffer
 		for (int c = 0; c < 128; c++) {
 			charBuffer[port][c] = '\0';
