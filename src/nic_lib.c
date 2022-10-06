@@ -167,11 +167,6 @@ void addByte(int port){
 	// check to see if message received
 	if(charBuffer[port][0]+1==bufferPos[port]){
 		uint8_t message[bufferPos[port]+1];
-		// for(int i=0;i<bufferPos[port];i++){
-		// 	message[i]=charBuffer[port][i+1];
-		// }
-		// // add null character
-		// message[bufferPos[port]+1]='\0';
 
 		// copy buffer
 		for(int i=0;i<bufferPos[port]+1;i++){
