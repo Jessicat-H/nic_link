@@ -49,10 +49,6 @@ uint8_t latestMessage[128];
  */
 int sendChar(int pi, uint8_t c, int dT, int32_t pinOut) {
 	uint8_t data = c;
-	//100000
-	//010000
-	//00100
-	uint8_t first = !(0x80&data);
 	int i=0;
 	gpioPulse_t pulses[8*2+3];	
 
@@ -60,7 +56,7 @@ int sendChar(int pi, uint8_t c, int dT, int32_t pinOut) {
 	int32_t pins=INT32_MAX;	
 	// otherwise, send to individual port
 	if(pinOut!=INT32_MAX){
-		1<<pinOut;
+		pins = 1<<pinOut;
 	}
 
 	//add handshake
