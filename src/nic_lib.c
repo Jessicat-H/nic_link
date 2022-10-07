@@ -26,7 +26,7 @@ const uint32_t expected_dt = 2000;
 // delay in us
 uint32_t delay[] = {expected_dt,expected_dt,expected_dt,expected_dt};
 // margin in us
-uint32_t marginError[] = {500,500,500,500};
+uint32_t marginError[] = {expected_dt/4,expected_dt/4,expected_dt/4,expected_dt/4};
 // byte output buffer
 uint8_t output[4][8];
 // number of bits 
@@ -144,6 +144,12 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 				pulseOccured[port] = 0;
 			}
 		}
+	}else if(dT>delay[port]+marginError[port]){
+		// discard and reset message
+		bitNum[port] = 0;
+		pulseOccured[port] = 0;
+		bufferPos[port] = 0;
+		hsOccured[port] = 0;
 	}
 	lastPulseTick[port] = tick;
 
