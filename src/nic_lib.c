@@ -40,95 +40,6 @@ uint8_t latestMessage[128];
 
 
 /*
- * Send one character over a specified GPIO pin in Manchester encoding 
- * with a header for synchornization
- * pi - result returned from pigpio_start(NULL, NULL)
- * c - character to transmit
- * dT - Interval that corresponds to a long pulse. Must match between sender and reciever
- * pinOut - GPIO pin to send the message on (Broadcom numbers); if INT32_MAX send to all
- */
-int sendChar(int pi, uint8_t c, int dT, int32_t pinOut) {
-	uint8_t data = c;
-	//100000
-	//010000
-	//00100
-	uint8_t first = !(0x80&data);
-	int i=0;
-	gpioPulse_t pulses[8*2+3];	
-
-	// by default blast to all
-	int32_t pins=INT32_MAX;	
-	// otherwise, send to individual port
-	if(pinOut!=INT32_MAX){
-		1<<pinOut;
-	}
-
-	//add handshake
-	/* If signal starts high:
-	 * ----.    .--data starts
-	 *   . |    |
-	 *   . |    |
-	 *   . .----.
-	 * If signal starts low:
-	 *     .--.    .--data starts
-	 *     |  |    |
-	 *     |  |    |
-	 * ----.  .----.
-	 */
-	pulses[i].gpioOn=pins;
-	pulses[i].gpioOff=0;
-	pulses[i].usDelay=dT/2;
-	i++;
-	pulses[i].gpioOn=0;
-	pulses[i].gpioOff=pins;
-	pulses[i].usDelay=dT;
-	i++;
-	pulses[i].gpioOn=pins;
-	pulses[i].gpioOff=0;
-	pulses[i].usDelay=dT/2;
-	i++;
-	for (uint8_t m=0x80;m>0;m>>=1) {
-		/*Always encodes:
-		 *   .--
-		 *   |
-		 * --.
-		 */
-		if (data&m) {
-				pulses[i].gpioOn =0;
-				pulses[i].gpioOff=pins;
-				pulses[i].usDelay=dT/2;
-				i++;
-				pulses[i].gpioOn =pins;
-                                pulses[i].gpioOff=0;
-                                pulses[i].usDelay=dT/2;
-		}
-		/*Always encodes:
-                 * --.
-                 *   |
-                 *   .--
-                 */
-		else {
-				pulses[i].gpioOn =pins;
-				pulses[i].gpioOff=0;
-				pulses[i].usDelay=dT/2;
-				i++;
-				pulses[i].gpioOn =0;
-				pulses[i].gpioOff=pins;
-				pulses[i].usDelay=dT/2;
-
-		}
-	
-		i++;
-	}
-    wave_clear(pi);	
-	wave_add_generic(pi,i,pulses);
-	int wave = wave_create(pi);
-	
-	wave_send_once(pi,wave);
-	return(0);
-}
-
-/*
 	Convert a GPIO read pin to the NIC port number
 	@param user_gpio - the pin number to convert
 */
@@ -180,6 +91,7 @@ void addByte(int port){
 			charBuffer[port][c] = '\0';
 		}
 		bufferPos[port] = 0;
+		hsOccured[port] = 0;
 	}
 }
 
@@ -201,7 +113,6 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 		// account for rollover
 		dT = (4294967295-lastPulseTick[port]) + tick;
 	}
-
 	if ((dT>delay[port]-marginError[port]) && (dT <= delay[port]+marginError[port])) {
 		//long pulse
 		if(!hsOccured[port]) {
@@ -243,7 +154,6 @@ void changeDetected(int pi, unsigned user_gpio, unsigned level, uint32_t tick) {
 			output[port][i] = 0;
 		}
 		bitNum[port] = 0;
-		hsOccured[port] = 0;
 		pulseOccured[port] = 0;
 	}
 	
@@ -266,21 +176,94 @@ void broadcast(uint8_t* str, uint8_t length) {
  * @param length: the length of the message
  */
 void sendMessage(int port, uint8_t* str, uint8_t length) {
-	// the gpio pin to output to
+	// the gpio pins to output to
 	// by default, sends to all
-	int32_t gpio=INT32_MAX;
+	int32_t pins=INT32_MAX;
 	if(port<4){
-		gpio=out_array[port];
-	}
-	// send size
-	sendChar(pi, length, expected_dt, gpio);
-	usleep(expected_dt*11);
-	// send message
-	for(int i=0;i<length;i++){
-		sendChar(pi, str[i], expected_dt, gpio);
-		usleep(expected_dt*11);	
+		pins = 1<<out_array[port];
 	}
 
+	// initialize wave
+	wave_clear(pi);
+	// 3 pulses for the header, 2 for each bit, length+1 bytes 
+	gpioPulse_t pulses[3+(16*(length+1))];
+
+	// setup the header
+	int i=0;
+	/* If signal starts high:
+	 * ----.    .--data starts
+	 *   . |    |
+	 *   . |    |
+	 *   . .----.
+	 * If signal starts low:
+	 *     .--.    .--data starts
+	 *     |  |    |
+	 *     |  |    |
+	 * ----.  .----.
+	 */
+	pulses[i].gpioOn=pins;
+	pulses[i].gpioOff=0;
+	pulses[i].usDelay=expected_dt/2;
+	i++;
+	pulses[i].gpioOn=0;
+	pulses[i].gpioOff=pins;
+	pulses[i].usDelay=expected_dt;
+	i++;
+	pulses[i].gpioOn=pins;
+	pulses[i].gpioOff=0;
+	pulses[i].usDelay=expected_dt/2;
+	i++;
+
+	// add the bytes
+	for(uint8_t j=0;j<length+1;j++){
+		// if j=0, add the size
+		uint8_t data = length;
+		// otherwise, add the byte
+		if(j>0){
+			data = str[j-1];
+		}
+		// encode each bit
+		for (uint8_t m=0b10000000;m>0;m>>=1) {
+			/*If 1, encodes:
+			*   .--
+			*   |
+			* --.
+			*/
+			if (data&m) {
+					pulses[i].gpioOn =0;
+					pulses[i].gpioOff=pins;
+					pulses[i].usDelay=expected_dt/2;
+					i++;
+					pulses[i].gpioOn =pins;
+					pulses[i].gpioOff=0;
+					pulses[i].usDelay=expected_dt/2;
+			}
+			/*If 0, encodes:
+					* --.
+					*   |
+					*   .--
+					*/
+			else {
+					pulses[i].gpioOn =pins;
+					pulses[i].gpioOff=0;
+					pulses[i].usDelay=expected_dt/2;
+					i++;
+					pulses[i].gpioOn =0;
+					pulses[i].gpioOff=pins;
+					pulses[i].usDelay=expected_dt/2;
+
+			}
+		
+			i++;
+		}
+	}
+
+	// send wave
+	wave_add_generic(pi,i,pulses);
+	int wave = wave_create(pi);
+	wave_send_once(pi,wave);
+	// wait for wave to send; 2 dt's for header, 8 for each byte, add some for error
+	usleep(expected_dt*(2+(8*(length+1))+1));
 }
 
 /**
